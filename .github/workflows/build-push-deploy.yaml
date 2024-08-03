@@ -46,7 +46,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           build-args: |
-            GIT_CREDENTIALS=${{ inputs.GIT_CREDENTIALS }}
+            GIT_CREDENTIALS=${{ secrets.GIT_CREDENTIALS }}
           push: true
           tags: |
             ghcr.io/${{ inputs.ORG_NAME }}/${{ inputs.REPO_NAME }}:${{ github.ref_name }}
