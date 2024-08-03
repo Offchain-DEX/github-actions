@@ -19,10 +19,6 @@ on:
         required: true
         type: string
 
-    outputs:
-      COMMIT_SHA:
-        description: 'Shortened commit SHA'
-
 jobs:
   build-push-deploy:
     runs-on: self-hosted
