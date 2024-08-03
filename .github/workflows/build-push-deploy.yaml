@@ -4,7 +4,6 @@ on:
   workflow_call:
     secrets:
       GIT_CREDENTIALS:
-        description: 'Git credentials for accessing the repository'
         required: true
     inputs:
       ORG_NAME:
