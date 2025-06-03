@@ -10,6 +10,10 @@ To troubleshoot the Runner service, establish a connection to the hub using eith
 ## User Context Switch
 After successful authentication, switch to the designated "runner" user account to access the appropriate runtime environment.
 
+```bash
+su - runner
+```
+
 ## Directory Structure
 The runner's home directory contains an "actions-runner" folder, which serves as the execution environment for all build operations. The runner user maintains connectivity to the server's Docker daemon to facilitate containerized build processes.
 
