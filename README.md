@@ -35,10 +35,10 @@ Current runner version: '2.324.0'
 
 ## Troubleshooting
 Comprehensive logs for troubleshooting purposes are maintained in the _diag/ directory within the actions-runner folder.
-bash# View recent logs
+```bash
 ls -la ~/actions-runner/_diag/
 tail -f ~/actions-runner/_diag/Runner_*.log
-
+```
 
 ## Notes
 All build steps are executed from the runner user context
