@@ -18,6 +18,12 @@ on:
         description: 'Environment name for deployment'
         required: true
         type: string
+      SKIP_DEPLOY:
+        description: 'Skips deployment, only builds and pushes image'
+        required: false
+        type: boolean
+        default: false
+        
 
 jobs:
   build-push-deploy:
@@ -54,15 +60,18 @@ jobs:
             ghcr.io/${{ inputs.ORG_NAME }}/${{ inputs.REPO_NAME }}:${{ env.COMMIT_SHA }}
 
       - name: Update image in deployment
+        if:  SKIP_DEPLOY == false
         run: |
           sed -i "/##-image-replacer-##$/c\          image: ghcr.io/${{ inputs.ORG_NAME }}/${{ inputs.REPO_NAME }}:${{ env.COMMIT_SHA }} ##-image-replacer-##" deployment/overlays/${{ inputs.ENV_NAME }}/deployment.yaml
 
       - name: Configure git
+        if:  SKIP_DEPLOY == false
         run: |
           git config --global user.name "GitHub Actions Testnet Deploy"
           git config --global user.email "actions@github.com"
 
       - name: Commit changes
+        if:  SKIP_DEPLOY == false
         run: |
           git add deployment/overlays/${{ inputs.ENV_NAME }}/deployment.yaml
           git commit -m "Update deployment image to use commit ${{ env.COMMIT_SHA }}"
