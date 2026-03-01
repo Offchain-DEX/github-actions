@@ -14,6 +14,11 @@ on:
         description: 'Repository name for Docker image'
         required: true
         type: string
+      ENV_NAME:
+        description: 'Environment name for deployment (old hub)'
+        required: false
+        type: string
+        default: ''
       SKIP_DEPLOY:
         description: 'Skips deployment, only builds and pushes image'
         required: false
@@ -69,6 +74,16 @@ jobs:
           git config --global user.name "GitHub Actions Deploy"
           git config --global user.email "actions@github.com"
 
+      # Old hub deployment (push to service repo)
+      - name: Update image in service repo
+        if: inputs.SKIP_DEPLOY == false && inputs.ENV_NAME != ''
+        run: |
+          sed -i "/##-image-replacer-##$/c\          image: ghcr.io/${{ inputs.ORG_NAME }}/${{ inputs.REPO_NAME }}:${{ env.COMMIT_SHA }} ##-image-replacer-##" deployment/overlays/${{ inputs.ENV_NAME }}/deployment.yaml
+          git add deployment/overlays/${{ inputs.ENV_NAME }}/deployment.yaml
+          git commit -m "Update deployment image to use commit ${{ env.COMMIT_SHA }}"
+          git push
+
+      # New hub deployment (push to gitops repo)
       - name: Deploy to GitOps repo
         if: inputs.SKIP_DEPLOY == false
         run: |
