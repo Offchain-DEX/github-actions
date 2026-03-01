@@ -5,6 +5,8 @@ on:
     secrets:
       GIT_CREDENTIALS:
         required: true
+      GITOPS_DEPLOY_KEY:
+        required: false
     inputs:
       ORG_NAME:
         description: 'GitHub organization name'
@@ -23,7 +25,16 @@ on:
         required: false
         type: boolean
         default: false
-        
+      GITOPS_REPO:
+        description: 'GitOps repo to update (e.g. maxbax12/testnet-gitops-vultr)'
+        required: false
+        type: string
+        default: ''
+      GITOPS_DIR:
+        description: 'Directory name in gitops repo (defaults to REPO_NAME)'
+        required: false
+        type: string
+        default: ''
 
 jobs:
   build-push-deploy:
@@ -35,7 +46,6 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -60,22 +70,49 @@ jobs:
             ghcr.io/${{ inputs.ORG_NAME }}/${{ inputs.REPO_NAME }}:${{ env.COMMIT_SHA }}
 
       - name: Update image in deployment
-        if: inputs.SKIP_DEPLOY == false 
+        if: inputs.SKIP_DEPLOY == false
         run: |
           sed -i "/##-image-replacer-##$/c\          image: ghcr.io/${{ inputs.ORG_NAME }}/${{ inputs.REPO_NAME }}:${{ env.COMMIT_SHA }} ##-image-replacer-##" deployment/overlays/${{ inputs.ENV_NAME }}/deployment.yaml
 
       - name: Configure git
-        if: inputs.SKIP_DEPLOY == false 
+        if: inputs.SKIP_DEPLOY == false
         run: |
           git config --global user.name "GitHub Actions Testnet Deploy"
           git config --global user.email "actions@github.com"
 
       - name: Commit changes
-        if: inputs.SKIP_DEPLOY == false 
+        if: inputs.SKIP_DEPLOY == false
         run: |
           git add deployment/overlays/${{ inputs.ENV_NAME }}/deployment.yaml
           git commit -m "Update deployment image to use commit ${{ env.COMMIT_SHA }}"
           git push
+
+      # GitOps deployment to testnet-gitops-vultr
+      - name: Deploy to GitOps repo
+        if: inputs.SKIP_DEPLOY == false && inputs.GITOPS_REPO != ''
+        run: |
+          GITOPS_DIR="${{ inputs.GITOPS_DIR }}"
+          if [ -z "$GITOPS_DIR" ]; then
+            GITOPS_DIR="${{ inputs.REPO_NAME }}"
+          fi
+
+          git clone https://x-access-token:${{ secrets.GITOPS_DEPLOY_KEY }}@github.com/${{ inputs.GITOPS_REPO }}.git /tmp/gitops
+          cd /tmp/gitops
+
+          DEPLOY_FILE="kubernetes/hub/${GITOPS_DIR}/templates/deployment.yaml"
+          if [ ! -f "$DEPLOY_FILE" ]; then
+            echo "ERROR: $DEPLOY_FILE not found in gitops repo"
+            exit 1
+          fi
+
+          sed -i "/##-image-replacer-##$/c\          image: ghcr.io/${{ inputs.ORG_NAME }}/${{ inputs.REPO_NAME }}:${{ env.COMMIT_SHA }} ##-image-replacer-##" "$DEPLOY_FILE"
+
+          git add "$DEPLOY_FILE"
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+          git commit -m "Deploy ${{ inputs.REPO_NAME }}:${{ env.COMMIT_SHA }}"
+          git push
+
+          rm -rf /tmp/gitops
 
       - name: Set output
         run: echo "COMMIT_SHA=${{ env.COMMIT_SHA }}" >> $GITHUB_ENV
