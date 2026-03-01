@@ -5,8 +5,6 @@ on:
     secrets:
       GIT_CREDENTIALS:
         required: true
-      GITOPS_DEPLOY_KEY:
-        required: false
     inputs:
       ORG_NAME:
         description: 'GitHub organization name'
@@ -26,7 +24,7 @@ on:
         type: boolean
         default: false
       GITOPS_REPO:
-        description: 'GitOps repo to update (e.g. maxbax12/testnet-gitops-vultr)'
+        description: 'GitOps repo to update (e.g. Offchain-DEX/testnet-gitops-vultr)'
         required: false
         type: string
         default: ''
@@ -87,7 +85,7 @@ jobs:
           git commit -m "Update deployment image to use commit ${{ env.COMMIT_SHA }}"
           git push
 
-      # GitOps deployment to testnet-gitops-vultr
+      # GitOps deployment
       - name: Deploy to GitOps repo
         if: inputs.SKIP_DEPLOY == false && inputs.GITOPS_REPO != ''
         run: |
@@ -96,7 +94,7 @@ jobs:
             GITOPS_DIR="${{ inputs.REPO_NAME }}"
           fi
 
-          git clone https://x-access-token:${{ secrets.GITOPS_DEPLOY_KEY }}@github.com/${{ inputs.GITOPS_REPO }}.git /tmp/gitops
+          git clone https://x-access-token:${{ secrets.GIT_CREDENTIALS }}@github.com/${{ inputs.GITOPS_REPO }}.git /tmp/gitops
           cd /tmp/gitops
 
           DEPLOY_FILE="kubernetes/hub/${GITOPS_DIR}/templates/deployment.yaml"
