@@ -82,6 +82,7 @@ jobs:
             GITOPS_DIR="${{ inputs.REPO_NAME }}"
           fi
 
+          rm -rf /tmp/gitops
           git clone https://x-access-token:${{ secrets.GIT_CREDENTIALS }}@github.com/${{ inputs.GITOPS_REPO }}.git /tmp/gitops
           cd /tmp/gitops
 
