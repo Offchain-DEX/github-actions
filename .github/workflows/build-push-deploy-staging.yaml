@@ -1,0 +1,90 @@
+name: Build, Push and Deploy (Staging)
+
+on:
+  workflow_call:
+    secrets:
+      GIT_CREDENTIALS:
+        required: true
+    inputs:
+      ORG_NAME:
+        description: "GitHub organization name"
+        required: true
+        type: string
+      REPO_NAME:
+        description: "Repository name for Docker image"
+        required: true
+        type: string
+      GITOPS_REPO:
+        description: "GitOps repo to update (e.g. Offchain-DEX/testnet-gitops-vultr)"
+        required: false
+        type: string
+        default: "Offchain-DEX/testnet-gitops-vultr"
+      GITOPS_DIR:
+        description: "Directory name in gitops repo (defaults to REPO_NAME)"
+        required: false
+        type: string
+        default: ""
+
+jobs:
+  build-push-deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get short commit SHA
+        id: vars
+        run: |
+          echo "COMMIT_SHA=$(echo ${GITHUB_SHA} | cut -c1-7)" >> $GITHUB_ENV
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          build-args: |
+            GIT_CREDENTIALS=${{ secrets.GIT_CREDENTIALS }}
+          push: true
+          tags: |
+            ghcr.io/${{ inputs.ORG_NAME }}/${{ inputs.REPO_NAME }}:staging
+            ghcr.io/${{ inputs.ORG_NAME }}/${{ inputs.REPO_NAME }}:staging-${{ env.COMMIT_SHA }}
+
+      - name: Configure git
+        run: |
+          git config --global user.name "GitHub Actions Deploy"
+          git config --global user.email "actions@github.com"
+
+      - name: Deploy to GitOps repo (staging)
+        run: |
+          GITOPS_DIR="${{ inputs.GITOPS_DIR }}"
+          if [ -z "$GITOPS_DIR" ]; then
+            GITOPS_DIR="${{ inputs.REPO_NAME }}"
+          fi
+
+          rm -rf /tmp/gitops
+          git clone https://x-access-token:${{ secrets.GIT_CREDENTIALS }}@github.com/${{ inputs.GITOPS_REPO }}.git /tmp/gitops
+          cd /tmp/gitops
+
+          DEPLOY_FILE="kubernetes/staging/${GITOPS_DIR}/templates/deployment.yaml"
+          if [ ! -f "$DEPLOY_FILE" ]; then
+            echo "ERROR: $DEPLOY_FILE not found in gitops repo"
+            exit 1
+          fi
+
+          sed -i "/##-image-replacer-##$/c\          image: ghcr.io/${{ inputs.ORG_NAME }}/${{ inputs.REPO_NAME }}:staging-${{ env.COMMIT_SHA }} ##-image-replacer-##" "$DEPLOY_FILE"
+
+          git add "$DEPLOY_FILE"
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+          git commit -m "Deploy staging/${{ inputs.REPO_NAME }}:staging-${{ env.COMMIT_SHA }}"
+          git push
+
+          rm -rf /tmp/gitops
