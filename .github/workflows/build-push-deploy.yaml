@@ -34,6 +34,11 @@ on:
         required: false
         type: string
         default: ""
+      GITOPS_BASE:
+        description: "Base path in gitops repo (defaults to kubernetes/hub)"
+        required: false
+        type: string
+        default: "kubernetes/hub"
 
 jobs:
   build-push-deploy:
@@ -86,7 +91,7 @@ jobs:
           git clone https://x-access-token:${{ secrets.GIT_CREDENTIALS }}@github.com/${{ inputs.GITOPS_REPO }}.git /tmp/gitops
           cd /tmp/gitops
 
-          DEPLOY_FILE="kubernetes/hub/${GITOPS_DIR}/templates/deployment.yaml"
+          DEPLOY_FILE="${{ inputs.GITOPS_BASE }}/${GITOPS_DIR}/templates/deployment.yaml"
           if [ ! -f "$DEPLOY_FILE" ]; then
             echo "ERROR: $DEPLOY_FILE not found in gitops repo"
             exit 1
