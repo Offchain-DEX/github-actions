@@ -1,0 +1,55 @@
+name: Build and Push (Tester)
+
+on:
+  workflow_call:
+    secrets:
+      GIT_CREDENTIALS:
+        required: true
+    inputs:
+      ORG_NAME:
+        description: "GitHub organization name"
+        required: true
+        type: string
+      REPO_NAME:
+        description: "Repository name (image will be pushed as <REPO_NAME>-tester)"
+        required: true
+        type: string
+      CARGO_FEATURES:
+        description: "Cargo features to enable for the tester build"
+        required: false
+        type: string
+        default: "tester"
+
+jobs:
+  build-push:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get short commit SHA
+        id: vars
+        run: |
+          echo "COMMIT_SHA=$(echo ${GITHUB_SHA} | cut -c1-7)" >> $GITHUB_ENV
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          build-args: |
+            GIT_CREDENTIALS=${{ secrets.GIT_CREDENTIALS }}
+            CARGO_FEATURES=${{ inputs.CARGO_FEATURES }}
+          push: true
+          tags: |
+            ghcr.io/${{ inputs.ORG_NAME }}/${{ inputs.REPO_NAME }}-tester:latest
+            ghcr.io/${{ inputs.ORG_NAME }}/${{ inputs.REPO_NAME }}-tester:${{ env.COMMIT_SHA }}
