@@ -5,6 +5,13 @@ on:
     secrets:
       GIT_CREDENTIALS:
         required: true
+      # Optional separate credential for the GitOps deploy push. Lets a
+      # cross-org deploy (e.g. prod → mnhhub/infra) use a token scoped only
+      # to the gitops repo, while GIT_CREDENTIALS stays scoped to reading the
+      # build's own-org private deps. Defaults to GIT_CREDENTIALS when unset,
+      # so same-org callers (staging/master/tester) are unaffected.
+      GITOPS_CREDENTIALS:
+        required: false
     inputs:
       ORG_NAME:
         description: "GitHub organization name"
@@ -92,7 +99,11 @@ jobs:
           fi
 
           rm -rf /tmp/gitops
-          git clone https://x-access-token:${{ secrets.GIT_CREDENTIALS }}@github.com/${{ inputs.GITOPS_REPO }}.git /tmp/gitops
+          # Use the dedicated gitops credential when provided (cross-org deploys
+          # like prod → mnhhub/infra), else fall back to GIT_CREDENTIALS for
+          # same-org callers. The `git push` below reuses this URL's embedded
+          # token via the origin remote.
+          git clone https://x-access-token:${{ secrets.GITOPS_CREDENTIALS || secrets.GIT_CREDENTIALS }}@github.com/${{ inputs.GITOPS_REPO }}.git /tmp/gitops
           cd /tmp/gitops
 
           for dir in $GITOPS_DIR; do
