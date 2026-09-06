@@ -11,11 +11,16 @@ on:
         required: true
         type: string
       REPO_NAME:
-        description: "Repository name (image will be pushed as <REPO_NAME>-tester)"
+        description: "Repository name (image pushed as <REPO_NAME>-<IMAGE_SUFFIX>)"
         required: true
         type: string
       CARGO_FEATURES:
         description: "Cargo features to enable for the tester build"
+        required: false
+        type: string
+        default: "tester"
+      IMAGE_SUFFIX:
+        description: "Image name suffix: pushed as <REPO_NAME>-<IMAGE_SUFFIX> (e.g. tester, public)"
         required: false
         type: string
         default: "tester"
@@ -51,5 +56,5 @@ jobs:
             CARGO_FEATURES=${{ inputs.CARGO_FEATURES }}
           push: true
           tags: |
-            ghcr.io/${{ inputs.ORG_NAME }}/${{ inputs.REPO_NAME }}-tester:latest
-            ghcr.io/${{ inputs.ORG_NAME }}/${{ inputs.REPO_NAME }}-tester:${{ env.COMMIT_SHA }}
+            ghcr.io/${{ inputs.ORG_NAME }}/${{ inputs.REPO_NAME }}-${{ inputs.IMAGE_SUFFIX }}:latest
+            ghcr.io/${{ inputs.ORG_NAME }}/${{ inputs.REPO_NAME }}-${{ inputs.IMAGE_SUFFIX }}:${{ env.COMMIT_SHA }}
