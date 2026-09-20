@@ -48,11 +48,18 @@ jobs:
         run: |
           echo "COMMIT_SHA=$(echo ${GITHUB_SHA} | cut -c1-7)" >> $GITHUB_ENV
 
+      # Buildx runs against its Git context (no `context:` input below),
+      # which carries no `.git` — so a build that stamps its own revision
+      # into the binary is handed that revision here rather than reading
+      # it. The first 7 characters are the image tag below, so a running
+      # binary's reported commit names the image it shipped in. A build
+      # that declares no matching ARG ignores it.
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
           build-args: |
             GIT_CREDENTIALS=${{ secrets.GIT_CREDENTIALS }}
+            GIT_SHA=${{ github.sha }}
             CARGO_FEATURES=${{ inputs.CARGO_FEATURES }}
           push: true
           tags: |
