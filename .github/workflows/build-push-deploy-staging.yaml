@@ -72,6 +72,10 @@ jobs:
 
       - name: Deploy to GitOps repo (staging)
         run: |
+          # GITOPS_DIR is a whitespace-separated list, so one image that backs
+          # several deployments (e.g. a workspace shipping multiple binaries)
+          # bumps every one of them in the same commit. A single value is the
+          # common case and loops exactly once.
           GITOPS_DIR="${{ inputs.GITOPS_DIR }}"
           if [ -z "$GITOPS_DIR" ]; then
             GITOPS_DIR="${{ inputs.REPO_NAME }}"
@@ -81,15 +85,18 @@ jobs:
           git clone https://x-access-token:${{ secrets.GIT_CREDENTIALS }}@github.com/${{ inputs.GITOPS_REPO }}.git /tmp/gitops
           cd /tmp/gitops
 
-          DEPLOY_FILE="kubernetes/staging/${GITOPS_DIR}/templates/deployment.yaml"
-          if [ ! -f "$DEPLOY_FILE" ]; then
-            echo "ERROR: $DEPLOY_FILE not found in gitops repo"
-            exit 1
-          fi
+          for dir in $GITOPS_DIR; do
+            DEPLOY_FILE="kubernetes/staging/${dir}/templates/deployment.yaml"
+            if [ ! -f "$DEPLOY_FILE" ]; then
+              echo "ERROR: $DEPLOY_FILE not found in gitops repo"
+              exit 1
+            fi
 
-          sed -i "/##-image-replacer-##$/c\          image: ghcr.io/${{ inputs.ORG_NAME }}/${{ inputs.REPO_NAME }}:staging-${{ env.COMMIT_SHA }} ##-image-replacer-##" "$DEPLOY_FILE"
+            sed -i "/##-image-replacer-##$/c\          image: ghcr.io/${{ inputs.ORG_NAME }}/${{ inputs.REPO_NAME }}:staging-${{ env.COMMIT_SHA }} ##-image-replacer-##" "$DEPLOY_FILE"
 
-          git add "$DEPLOY_FILE"
+            git add "$DEPLOY_FILE"
+          done
+
           git diff --cached --quiet && echo "No changes to commit" && exit 0
           git commit -m "Deploy staging/${{ inputs.REPO_NAME }}:staging-${{ env.COMMIT_SHA }}"
           git push
